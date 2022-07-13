@@ -2,11 +2,8 @@
 Файловое хранилище с загрузкой файлов в один клик.  
 Урок 3 курса Асинхронный Python от Devman.
 
-## Зависимости
-TODO: ...
-
 ## Запуск
 ```bash
+$ pip install -r requirements.txt
 $ python cloud.py
 ```
-

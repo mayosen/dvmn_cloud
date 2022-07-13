@@ -1,5 +1,7 @@
 import asyncio
 
+import aiofiles
+
 
 async def make_archive(folder: str = "./data", name: str = "photos"):
     process = await asyncio.create_subprocess_exec(
@@ -11,10 +13,10 @@ async def make_archive(folder: str = "./data", name: str = "photos"):
         stderr=asyncio.subprocess.PIPE
     )
 
-    with open(f"{name}.zip", "wb") as archive:
+    async with aiofiles.open(f"{name}.zip", "wb") as archive:
         while not process.stdout.at_eof():
             new_bytes = await process.stdout.read(100 * 1024)
-            archive.write(new_bytes)
+            await archive.write(new_bytes)
 
 
 async def main():
