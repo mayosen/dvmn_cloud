@@ -1,9 +1,14 @@
 import asyncio
 import logging
+import re
+from os import path
 
 import aiofiles
 from aiohttp import web
 from aiohttp.web_request import Request
+
+
+# TODO: Шаг 9. Сервер откажется создавать архив для каталога . или ..
 
 
 async def index_handler(request: Request):
@@ -24,6 +29,12 @@ async def create_zip_process(archive_hash: str):
 
 async def archive_handler(request: Request):
     archive = request.match_info.get("archive_hash")
+
+    if not re.match(r"\w+", archive):
+        raise web.HTTPBadRequest(text="Некорректный хэш.")
+    elif not path.exists(f"photos/{archive}"):
+        raise web.HTTPNotFound(text="Архив не существует или был удален.")
+
     response = web.StreamResponse()
     response.headers.update({
         "Content-Type": "application/zip",
@@ -32,11 +43,13 @@ async def archive_handler(request: Request):
 
     await response.prepare(request)
     process = await create_zip_process(archive)
+    iteration = 1
 
     while not process.stdout.at_eof():
         new_bytes = await process.stdout.read(100 * 1024)
         await response.write(new_bytes)
-        logging.debug("new iteration")
+        logging.debug(f"Sending archive chunk #{iteration}...")
+        iteration += 1
 
     await response.write_eof()
     return response
