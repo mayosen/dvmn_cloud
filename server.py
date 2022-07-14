@@ -32,7 +32,7 @@ async def archive(request: Request):
 
 async def handle_index_page(request: Request):
     async with aiofiles.open("index.html", "r") as index_file:
-        index_contents = await index_file.read()
+        index_contents = await index_file.read()  # Будет читаться до конца файла
     return web.Response(text=index_contents, content_type="text/html")
 
 
