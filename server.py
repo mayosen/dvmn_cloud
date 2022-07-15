@@ -8,12 +8,9 @@ from aiohttp import web
 from aiohttp.web_request import Request
 
 
-# TODO: Шаг 9. Сервер откажется создавать архив для каталога . или ..
-
-
 async def index_handler(request: Request):
     async with aiofiles.open("index.html", "r") as index_file:
-        index_contents = await index_file.read()  # Будет читаться до конца файла
+        index_contents = await index_file.read()
     return web.Response(text=index_contents, content_type="text/html")
 
 
@@ -42,14 +39,21 @@ async def archive_handler(request: Request):
     })
 
     await response.prepare(request)
+    # response.enable_chunked_encoding()
     process = await create_zip_process(archive)
     iteration = 1
 
     while not process.stdout.at_eof():
-        new_bytes = await process.stdout.read(100 * 1024)
-        await response.write(new_bytes)
+        chunk = await process.stdout.read(100 * 1024)
+
+        try:
+            await response.write(chunk)
+        except Exception as e:
+            logging.debug("ConnectionError")
+
         logging.debug(f"Sending archive chunk #{iteration}...")
         iteration += 1
+        await asyncio.sleep(2)
 
     await response.write_eof()
     return response
