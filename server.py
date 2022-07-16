@@ -32,31 +32,31 @@ async def archive_handler(request: Request):
     elif not path.exists(f"photos/{archive}"):
         raise web.HTTPNotFound(text="Архив не существует или был удален.")
 
-    response = web.StreamResponse()
-    response.headers.update({
-        "Content-Type": "application/zip",
-        "Content-Disposition": f'attachment; filename="{archive}.zip"'
-    })
+    try:
+        response = web.StreamResponse()
+        response.headers.update({
+            "Content-Type": "application/zip",
+            "Content-Disposition": f'attachment; filename="{archive}.zip"'
+        })
 
-    await response.prepare(request)
-    # response.enable_chunked_encoding()
-    process = await create_zip_process(archive)
-    iteration = 1
+        await response.prepare(request)
+        # response.enable_chunked_encoding()
+        process = await create_zip_process(archive)
+        iteration = 1
 
-    while not process.stdout.at_eof():
-        chunk = await process.stdout.read(100 * 1024)
-
-        try:
+        while not process.stdout.at_eof():
+            chunk = await process.stdout.read(100 * 1024)
             await response.write(chunk)
-        except Exception as e:
-            logging.debug("ConnectionError")
+            logging.debug(f"Sending archive chunk #{iteration}...")
+            iteration += 1
+            await asyncio.sleep(2)
+        await response.write_eof()
+        return response
 
-        logging.debug(f"Sending archive chunk #{iteration}...")
-        iteration += 1
-        await asyncio.sleep(2)
+    except Exception as e:
+        logging.debug("Error")
 
-    await response.write_eof()
-    return response
+
 
 
 if __name__ == "__main__":
