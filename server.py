@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+import traceback
 from os import path
 
 import aiofiles
@@ -11,6 +12,7 @@ from aiohttp.web_request import Request
 async def index_handler(request: Request):
     async with aiofiles.open("index.html", "r") as index_file:
         index_contents = await index_file.read()
+
     return web.Response(text=index_contents, content_type="text/html")
 
 
@@ -21,6 +23,7 @@ async def create_zip_process(archive_hash: str):
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE
     )
+
     return process
 
 
@@ -32,18 +35,18 @@ async def archive_handler(request: Request):
     elif not path.exists(f"photos/{archive}"):
         raise web.HTTPNotFound(text="Архив не существует или был удален.")
 
+    response = web.StreamResponse()
+    response.headers.update({
+        "Content-Type": "application/zip",
+        "Content-Disposition": f'attachment; filename="{archive}.zip"'
+    })
+
+    await response.prepare(request)
+    # response.enable_chunked_encoding()
+    process = await create_zip_process(archive)
+    iteration = 1
+
     try:
-        response = web.StreamResponse()
-        response.headers.update({
-            "Content-Type": "application/zip",
-            "Content-Disposition": f'attachment; filename="{archive}.zip"'
-        })
-
-        await response.prepare(request)
-        # response.enable_chunked_encoding()
-        process = await create_zip_process(archive)
-        iteration = 1
-
         while not process.stdout.at_eof():
             chunk = await process.stdout.read(100 * 1024)
             await response.write(chunk)
@@ -51,12 +54,10 @@ async def archive_handler(request: Request):
             iteration += 1
             await asyncio.sleep(2)
         await response.write_eof()
+    except asyncio.CancelledError as e:
+        logging.error("Download was interrupted")
+    finally:
         return response
-
-    except Exception as e:
-        logging.debug("Error")
-
-
 
 
 if __name__ == "__main__":
