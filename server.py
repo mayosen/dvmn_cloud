@@ -1,12 +1,14 @@
 import asyncio
 import logging
 import re
-import traceback
+import sys
 from os import path
 
 import aiofiles
 from aiohttp import web
 from aiohttp.web_request import Request
+
+from config import load_config
 
 
 async def index_handler(request: Request):
@@ -17,7 +19,7 @@ async def index_handler(request: Request):
 
 
 def create_zip_process(archive_hash: str):
-    command = ["zip", "-", "-r", "-j", f"photos/{archive_hash}/"]
+    command = ["zip", "-", "-r", "-j", f"{config.path}/{archive_hash}/"]
     process = asyncio.create_subprocess_exec(
         *command,
         stdout=asyncio.subprocess.PIPE,
@@ -36,7 +38,7 @@ async def archive_handler(request: Request):
 
     if not re.match(r"\w+", archive):
         raise web.HTTPBadRequest(text="Некорректный хэш.")
-    elif not path.exists(f"photos/{archive}"):
+    elif not path.exists(f"{config.path}/{archive}"):
         raise web.HTTPNotFound(text="Архив не существует или был удален.")
 
     response = web.StreamResponse()
@@ -57,21 +59,26 @@ async def archive_handler(request: Request):
             await response.write(chunk)
             logging.debug(f"Sending archive chunk #{iteration}...")
             iteration += 1
+
             # if iteration == 1000:
-            #     raise ServerError
-            #     raise SystemExit
+                # raise ServerError
+                # raise SystemExit
+            await asyncio.sleep(config.delay)
 
         await response.write_eof()
 
     except asyncio.CancelledError:
         logging.error("Download was interrupted: User stopped the downloading")
         process.kill()
+        await process.communicate()
     except ServerError:
         logging.error("Download was interrupted: IndexError")
         process.kill()
+        await process.communicate()
     except SystemExit:
         logging.error("Download was interrupted: SystemExit")
         process.kill()
+        await process.communicate()
     finally:
         return response
 
@@ -80,8 +87,15 @@ if __name__ == "__main__":
     logging.basicConfig(
         format=u"%(asctime)s [%(levelname)s] %(name)s - %(message)s",
         level=logging.DEBUG,
-        datefmt="%H:%M:%S"
+        datefmt="%H:%M:%S",
     )
+
+    config = load_config()
+
+    if config.nolog:
+        logging.disable(sys.maxsize)
+
+    print(config)
 
     app = web.Application()
     app.add_routes([
