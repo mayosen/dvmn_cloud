@@ -16,15 +16,19 @@ async def index_handler(request: Request):
     return web.Response(text=index_contents, content_type="text/html")
 
 
-async def create_zip_process(archive_hash: str):
+def create_zip_process(archive_hash: str):
     command = ["zip", "-", "-r", "-j", f"photos/{archive_hash}/"]
-    process = await asyncio.create_subprocess_exec(
+    process = asyncio.create_subprocess_exec(
         *command,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE
     )
 
     return process
+
+
+class ServerError(Exception):
+    pass
 
 
 async def archive_handler(request: Request):
@@ -45,17 +49,29 @@ async def archive_handler(request: Request):
     # response.enable_chunked_encoding()
     process = await create_zip_process(archive)
     iteration = 1
+    chunk_size = 500 * 1024
 
     try:
         while not process.stdout.at_eof():
-            chunk = await process.stdout.read(100 * 1024)
+            chunk = await process.stdout.read(chunk_size)
             await response.write(chunk)
             logging.debug(f"Sending archive chunk #{iteration}...")
             iteration += 1
-            await asyncio.sleep(2)
+            # if iteration == 1000:
+            #     raise ServerError
+            #     raise SystemExit
+
         await response.write_eof()
-    except asyncio.CancelledError as e:
-        logging.error("Download was interrupted")
+
+    except asyncio.CancelledError:
+        logging.error("Download was interrupted: User stopped the downloading")
+        process.kill()
+    except ServerError:
+        logging.error("Download was interrupted: IndexError")
+        process.kill()
+    except SystemExit:
+        logging.error("Download was interrupted: SystemExit")
+        process.kill()
     finally:
         return response
 
