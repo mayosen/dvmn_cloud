@@ -95,8 +95,6 @@ if __name__ == "__main__":
     if config.nolog:
         logging.disable(sys.maxsize)
 
-    print(config)
-
     app = web.Application()
     app.add_routes([
         web.get("/", index_handler),
