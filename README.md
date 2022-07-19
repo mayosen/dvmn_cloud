@@ -5,5 +5,5 @@
 ## Запуск
 ```bash
 $ pip install -r requirements.txt
-$ python cloud.py
+$ python server.py
 ```
