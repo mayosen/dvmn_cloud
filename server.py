@@ -29,27 +29,23 @@ def create_zip_process(archive_hash: str):
     return process
 
 
-class ServerError(Exception):
-    pass
-
-
 async def archive_handler(request: Request):
-    archive = request.match_info.get("archive_hash")
+    archive_hash = request.match_info["archive_hash"]
 
-    if not re.match(r"\w+", archive):
+    if not re.match(r"\w+", archive_hash):
         raise web.HTTPBadRequest(text="Некорректный хэш.")
-    elif not path.exists(f"{config.path}/{archive}"):
+    elif not path.exists(f"{config.path}/{archive_hash}"):
         raise web.HTTPNotFound(text="Архив не существует или был удален.")
 
     response = web.StreamResponse()
     response.headers.update({
         "Content-Type": "application/zip",
-        "Content-Disposition": f'attachment; filename="{archive}.zip"'
+        "Content-Disposition": f'attachment; filename="{archive_hash}.zip"'
     })
 
+    response.enable_chunked_encoding()
     await response.prepare(request)
-    # response.enable_chunked_encoding()
-    process = await create_zip_process(archive)
+    process = await create_zip_process(archive_hash)
     iteration = 1
     chunk_size = 500 * 1024
 
@@ -59,27 +55,21 @@ async def archive_handler(request: Request):
             await response.write(chunk)
             logging.debug(f"Sending archive chunk #{iteration}...")
             iteration += 1
-
-            # if iteration == 1000:
-                # raise ServerError
-                # raise SystemExit
             await asyncio.sleep(config.delay)
 
         await response.write_eof()
 
     except asyncio.CancelledError:
         logging.error("Download was interrupted: User stopped the downloading")
-        process.kill()
-        await process.communicate()
-    except ServerError:
-        logging.error("Download was interrupted: IndexError")
-        process.kill()
-        await process.communicate()
+        raise
     except SystemExit:
         logging.error("Download was interrupted: SystemExit")
-        process.kill()
-        await process.communicate()
+    except BaseException as e:
+        logging.error(f"Download was interrupted: {type(e).__name__} with args: {e.args}")
     finally:
+        if process.returncode != 0:
+            process.kill()
+        await process.communicate()
         return response
 
 
@@ -92,7 +82,7 @@ if __name__ == "__main__":
 
     config = load_config()
 
-    if config.nolog:
+    if not config.log:
         logging.disable(sys.maxsize)
 
     app = web.Application()

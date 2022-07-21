@@ -5,7 +5,7 @@ from os import environ
 
 @dataclass
 class Config:
-    nolog: bool
+    log: bool
     delay: float
     path: str
 
@@ -21,7 +21,6 @@ def load_config() -> Config:
     parser.add_argument("-p", "--path", type=str, default="photos/", help="path to catalog with file archives")
 
     args = parser.parse_args()
-    config = Config(args.nolog, args.delay, args.path)
+    config = Config(not args.nolog, args.delay, args.path)
 
     return config
-
