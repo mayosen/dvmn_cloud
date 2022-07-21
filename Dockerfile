@@ -2,11 +2,9 @@ FROM python:3.10-alpine
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8080
 
-COPY . /app
-WORKDIR /app
-
-RUN apk update && \
-    apk add zip && \
-    pip install -r requirements.txt
+RUN apk update && apk add zip
+COPY requirements.txt /app/
+RUN pip install -r /app/requirements.txt
+COPY . /app/
 
 ENTRYPOINT ["python", "server.py"]
