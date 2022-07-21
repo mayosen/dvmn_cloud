@@ -1,8 +1,8 @@
 import asyncio
 import logging
+import os
 import re
 import sys
-from os import path
 
 import aiofiles
 from aiohttp import web
@@ -19,7 +19,7 @@ async def index_handler(request: Request):
 
 
 def create_zip_process(archive_hash: str):
-    command = ["zip", "-", "-r", "-j", f"{config.path}/{archive_hash}/"]
+    command = ["zip", "-", "-r", f"{archive_hash}/"]
     process = asyncio.create_subprocess_exec(
         *command,
         stdout=asyncio.subprocess.PIPE,
@@ -34,7 +34,7 @@ async def archive_handler(request: Request):
 
     if not re.match(r"\w+", archive_hash):
         raise web.HTTPBadRequest(text="Некорректный хэш.")
-    elif not path.exists(f"{config.path}/{archive_hash}"):
+    elif not os.path.exists(f"{archive_hash}/"):
         raise web.HTTPNotFound(text="Архив не существует или был удален.")
 
     response = web.StreamResponse()
@@ -84,6 +84,8 @@ if __name__ == "__main__":
 
     if not config.log:
         logging.disable(sys.maxsize)
+
+    os.chdir(config.path)
 
     app = web.Application()
     app.add_routes([
