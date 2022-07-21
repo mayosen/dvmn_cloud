@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import sys
+from functools import partial
 
 import aiofiles
 from aiohttp import web
@@ -29,8 +30,9 @@ def create_zip_process(archive_hash: str):
     return process
 
 
-async def archive_handler(request: Request):
+async def download_archive(request: Request, response_delay: float):
     archive_hash = request.match_info["archive_hash"]
+    logging.info(response_delay)
 
     if not re.match(r"\w+", archive_hash):
         raise web.HTTPBadRequest(text="Некорректный хэш.")
@@ -55,7 +57,7 @@ async def archive_handler(request: Request):
             await response.write(chunk)
             logging.debug(f"Sending archive chunk #{iteration}...")
             iteration += 1
-            await asyncio.sleep(config.delay)
+            await asyncio.sleep(response_delay)
 
         await response.write_eof()
 
@@ -67,13 +69,13 @@ async def archive_handler(request: Request):
     except BaseException as e:
         logging.error(f"Download was interrupted: {type(e).__name__} with args: {e.args}")
     finally:
+        stdout, stderr = await process.communicate()
         if process.returncode != 0:
             process.kill()
-        await process.communicate()
         return response
 
 
-if __name__ == "__main__":
+def main():
     logging.basicConfig(
         format=u"%(asctime)s [%(levelname)s] %(name)s - %(message)s",
         level=logging.DEBUG,
@@ -86,6 +88,7 @@ if __name__ == "__main__":
         logging.disable(sys.maxsize)
 
     os.chdir(config.path)
+    archive_handler = partial(download_archive, response_delay=config.delay)
 
     app = web.Application()
     app.add_routes([
@@ -94,3 +97,7 @@ if __name__ == "__main__":
     ])
 
     web.run_app(app)
+
+
+if __name__ == "__main__":
+    main()

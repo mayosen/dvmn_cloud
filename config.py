@@ -1,6 +1,5 @@
 from argparse import ArgumentParser
 from dataclasses import dataclass
-from os import environ
 
 
 @dataclass
@@ -14,7 +13,7 @@ def load_config() -> Config:
     parser = ArgumentParser()
     parser.add_argument("-nl", "--nolog", action="store_true", help="disable logs")
     parser.add_argument("-d", "--delay", type=float, default=0, help="response delay (s)")
-    parser.add_argument("-p", "--path", type=str, default="photos", help="path to catalog with file archives")
+    parser.add_argument("-p", "--path", type=str, default="photos", help="path to root folder of archives")
 
     args = parser.parse_args()
     args.path = args.path.strip("/")
