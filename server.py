@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-import re
 import sys
 from functools import partial
 
@@ -13,7 +12,7 @@ from config import load_config
 
 
 async def index_handler(request: Request):
-    async with aiofiles.open("index.html", "r") as index_file:
+    async with aiofiles.open("../index.html", "r") as index_file:
         index_contents = await index_file.read()
 
     return web.Response(text=index_contents, content_type="text/html")
@@ -33,9 +32,7 @@ def create_zip_process(archive_hash: str):
 async def download_archive(request: Request, response_delay: float):
     archive_hash = request.match_info["archive_hash"]
 
-    if not re.match(r"\w+", archive_hash):
-        raise web.HTTPBadRequest(text="Некорректный хэш.")
-    elif not os.path.exists(f"{archive_hash}/"):
+    if not os.path.exists(f"{archive_hash}/"):
         raise web.HTTPNotFound(text="Архив не существует или был удален.")
 
     response = web.StreamResponse()
@@ -56,7 +53,9 @@ async def download_archive(request: Request, response_delay: float):
             await response.write(chunk)
             logging.debug(f"Sending archive chunk #{iteration}...")
             iteration += 1
-            await asyncio.sleep(response_delay)
+
+            if response_delay:
+                await asyncio.sleep(response_delay)
 
         await response.write_eof()
 
@@ -84,7 +83,7 @@ def main():
 
     config = load_config()
 
-    if not config.log:
+    if config.disable_logs:
         logging.disable(sys.maxsize)
 
     os.chdir(config.path)

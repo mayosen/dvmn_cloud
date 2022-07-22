@@ -4,19 +4,19 @@ from dataclasses import dataclass
 
 @dataclass
 class Config:
-    log: bool
+    disable_logs: bool
     delay: float
     path: str
 
 
 def load_config() -> Config:
     parser = ArgumentParser()
-    parser.add_argument("-nl", "--nolog", action="store_true", help="disable logs")
+    parser.add_argument("-dl", "--disablelogs", action="store_true", help="disable logs")
     parser.add_argument("-d", "--delay", type=float, default=0, help="response delay (s)")
     parser.add_argument("-p", "--path", type=str, default="photos", help="path to root folder of archives")
 
     args = parser.parse_args()
     args.path = args.path.strip("/")
-    config = Config(not args.nolog, args.delay, args.path)
+    config = Config(args.disablelogs, args.delay, args.path)
 
     return config
