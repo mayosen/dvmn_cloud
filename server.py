@@ -32,7 +32,6 @@ def create_zip_process(archive_hash: str):
 
 async def download_archive(request: Request, response_delay: float):
     archive_hash = request.match_info["archive_hash"]
-    logging.info(response_delay)
 
     if not re.match(r"\w+", archive_hash):
         raise web.HTTPBadRequest(text="Некорректный хэш.")
@@ -69,9 +68,10 @@ async def download_archive(request: Request, response_delay: float):
     except BaseException as e:
         logging.error(f"Download was interrupted: {type(e).__name__} with args: {e.args}")
     finally:
-        stdout, stderr = await process.communicate()
         if process.returncode != 0:
             process.kill()
+        await process.communicate()
+
         return response
 
 
